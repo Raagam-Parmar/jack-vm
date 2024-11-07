@@ -1,0 +1,6 @@
+(executable
+ (public_name assembler)
+ (name main)
+ (modules main)
+ (libraries lib)
+)

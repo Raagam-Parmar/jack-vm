@@ -1,0 +1,20 @@
+(START)
+(F00)
+@2
+D=A
+(BAR)
+@3
+D=D+A
+@0
+M=D
+
+let b1 : string Block.t = (Some (Label "START"), [])
+let b2 : string Block.t = (Some (Label "FOO"), [AInst "2"; CInst (Some [D],Unary (Identity, A), None)])
+let b3 : string Block.t = ( Some (Label "BAR"), [ AInst "3"; CInst (Some [D], Binary (Add, A), None); AInst "0"; CInst (Some [M], Unary (Identity, D), None) ] )
+
+let p : string program = [b1; b2; b3]
+
+let h = Hashtbl.create 10
+let () = LabelTable.populate h p
+let () = VarTable.populate h p
+let sl = Program.encode h p;;

@@ -1,0 +1,4 @@
+1. use the new and better AST for better VM project
+2. instead of recursion on list, just use List.map, makes it much simpler to look at (maybe, try it out)
+3. after using the new AST, remake the parser to make use of the improved AST. (NOTE: dont spend too much time on parser)
+4. learn about parsing and shift/reduce conflict, to understand it better

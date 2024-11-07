@@ -1,0 +1,15 @@
+(library
+ (name lib)
+ (public_name assembler.lib)
+ (modules ast parser lexer machine vector string_tools)
+ (libraries menhirLib)
+)
+
+(menhir (modules parser)
+;  (flags --exn-carries-state --trace --dump)
+ (flags --exn-carries-state)
+
+  ; (flags --strict)
+)
+
+(ocamllex (modules lexer))
