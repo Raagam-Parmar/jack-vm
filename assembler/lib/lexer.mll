@@ -28,6 +28,13 @@
                 | "JLE" -> JLE
                 | "JMP" -> JMP
                 | _     -> failwith "Lexer.reduce_jump : Unexpected Argument"
+        
+        let reduce_refF (rf : string) : int = 
+                int_of_string (String_tools.trim_left ~rprefix:"@^+ " rf)
+        
+        let reduce_refB (rb : string) : int = 
+                -1 * int_of_string (String_tools.trim_left ~rprefix:"@^- " rb)
+
 
 }
 
@@ -55,6 +62,9 @@ let jump         = "JGT" | "JGE" | "JEQ" | "JNE" | "JLE" | "JLT" | "JMP"
 let label        = '(' (allow_string) ')'
 
 let ainst        = '@' (spaces*) (allow_string) | '@' (spaces*) (int)
+let refF         = '@' (spaces*) '^' (spaces*) '+' (spaces*) (int)
+let refB         = '@' (spaces*) '^' (spaces*) '-' (spaces*) (int)
+
 
 
 rule read = 
@@ -76,6 +86,8 @@ rule read =
         | label         { LABEL (reduce_label (Lexing.lexeme lexbuf)) }
         | jump          { JUMP (reduce_jump (Lexing.lexeme lexbuf)) }
         | ainst         { AINST (reduce_a_inst (Lexing.lexeme lexbuf)) }
+        | refF          { REF (reduce_refF (Lexing.lexeme lexbuf)) }
+        | refB          { REF (reduce_refB (Lexing.lexeme lexbuf)) }
 
         | ignore        { read lexbuf }
         | "/*"          { skipMultiComment lexbuf }

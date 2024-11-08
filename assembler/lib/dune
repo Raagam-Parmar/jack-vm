@@ -1,7 +1,7 @@
 (library
  (name lib)
  (public_name assembler.lib)
- (modules ast parser lexer machine vector string_tools)
+ (modules ast parser lexer machine vector string_tools mnemonics mylist)
  (libraries menhirLib)
 )
 

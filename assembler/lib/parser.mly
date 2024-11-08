@@ -16,6 +16,7 @@
 
 %token <string> LABEL           // Label token carrying a string
 %token <string> AINST           // AInst token carrying a string
+%token <int> REF
 %token <Ast.jump> JUMP            // Jump token carrying a string
 
 %nonassoc reg
@@ -52,6 +53,7 @@ instruction_list:
 instruction:
         | a_instruction { Ast.AInst $1 }
         | c_instruction { Ast.CInst $1 }
+        | ref           { Ast.Ref $1}
         ;
 
 a_instruction:
@@ -140,3 +142,6 @@ const:
 jump:
         | SEMI; JUMP { $2 }
         ;
+
+ref:
+        | REF { $1 }
