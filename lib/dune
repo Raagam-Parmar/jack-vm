@@ -1,4 +1,5 @@
 (library
  (name jackvm)
  (libraries assembler.lib)
+ (modules ast encode snippets)
  )
