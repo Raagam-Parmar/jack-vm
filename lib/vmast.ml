@@ -48,4 +48,8 @@ module Function = struct
         }
 end
 
+module Program = struct
+        type ('f, 'l) t = ('f, 'l) Function.t list
+end
+
 (* Function.{name= "Hi"; nVar= 0; preamble= []; body= []};; to create something form the function module *)

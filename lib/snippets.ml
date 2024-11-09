@@ -325,6 +325,7 @@ end
 
 module Call : sig
         val v : string -> int -> int -> string Ast.instruction list
+        (* val bootstrap : string -> string Ast.instruction list *)
         val save_f : ('a -> string) -> 'a -> Vmast.Instruction.nArgs -> string Ast.instruction list
         val unique_address : int -> string
         val save : int -> int -> string Ast.instruction list
@@ -391,6 +392,15 @@ end = struct
                         [ Mnemonics.jmp ];
                         [ Label (unique_address addr_index) ]
                 ]
+        
+        (* let bootstrap (fName : string) : string Ast.instruction list = 
+                let init_ret_addr = 0 in
+                List.concat [
+                        return_address_f unique_address init_ret_addr;
+                        [ AInst fName ];
+                        [ Mnemonics.jmp ];
+                        [ Label (unique_address init_ret_addr) ]
+                ] *)
 end
 
 
@@ -502,7 +512,7 @@ end
 module Body : sig
         val encode : ?addr_index:int -> (string, string) Vmast.Instruction.t list -> string Ast.instruction list
 end = struct
-        let rec encode ?(addr_index=0) (insts : (string, string) Vmast.Instruction.t list) : string Ast.instruction list = 
+        let rec encode ?(addr_index=1) (insts : (string, string) Vmast.Instruction.t list) : string Ast.instruction list = 
                 let new_addr_index = addr_index + 1 in
                 match insts with
                 | []      -> []
@@ -525,4 +535,29 @@ end = struct
                                 Preamble.v name nVars;
                                 Body.encode body
                         ]
+end
+
+module Bootstrap : sig
+        val v : string Ast.instruction list
+end = struct
+        let v : string Ast.instruction list = List.concat [
+                [ Ast.AInst "256" ];
+                [ Helper.copy [D] A ];
+                
+                [ SP.goto ];
+                [ Helper.copy [M] D];
+
+                Call.v "Sys.init" 0 0
+        ]
+end
+
+module Program : sig
+        val encode : (string, string) Vmast.Program.t -> string Ast.instruction list
+end = struct
+        let rec encode (p : (string, string) Vmast.Program.t) : string Ast.instruction list = 
+                Bootstrap.v @
+                
+                match p with
+                | []      -> []
+                | f :: fs -> Function.encode f @ encode fs
 end
