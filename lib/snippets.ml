@@ -134,7 +134,7 @@ end = struct
         
         let push_this_that (s : Vmast.Segment.t) : string Ast.instruction list = 
                 List.concat [
-                        goto s;
+                        deref s;
                         [ Helper.copy [D] M ];
                         SP.deref;
                         [ Helper.copy [M] D ];
@@ -192,9 +192,9 @@ end = struct
                 | This      ->  pop_this_that s
                 | That      ->  pop_this_that s
                 | Pointer   ->  if (i == 0) then 
-                                push_this_that This 
+                                pop_this_that This 
                                 else if (i == 1) then 
-                                push_this_that That 
+                                pop_this_that That 
                                 else raise (UnexpectedOffset i)
                 | Temp      ->  pop_temp i
 
