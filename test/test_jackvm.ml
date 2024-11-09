@@ -1,10 +1,10 @@
 open Jackvm
 
-let a = Snippets.Segment.push Pointer 1 "Foo"
+let a = Snippets.Compare.gt
 
 
 
-let b : string Lib.Ast.program = [(None, a)]
+let b : string Lib.Ast.program = a
 let h = Hashtbl.create 10
 let () = Lib.Machine.LabelTable.populate h b
 let () = Lib.Machine.VarTable.populate h b

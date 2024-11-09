@@ -12,7 +12,7 @@ end
 
 module Instruction = struct
         type offset = int
-        type nArg = int
+        type nArgs = int
 
         type ('f, 'l) t = 
         (* These are stack operations, push/pop segment n *)
@@ -34,7 +34,7 @@ module Instruction = struct
 	| IfGoto of 'l
 
         (* These are function call and return instructions *)
-        | Call of ('f * nArg)
+        | Call of ('f * nArgs)
         | Ret
 
 end
@@ -42,7 +42,7 @@ end
 module Function = struct
         type ('f, 'l) t = {
                 name: 'f;
-                nVar: int;
+                nVars: int;
                 (* preamble: ('f, 'l) Instruction.t list; *)
                 body: ('f, 'l) Instruction.t list
         }
