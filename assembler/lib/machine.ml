@@ -1,4 +1,5 @@
 exception UnexpectedRegister of string
+exception UnexpectedArgument of string
 
 (** [Jump.encode] takes [Ast.jump option] and returns [int list] corresponding to the [Ast.jump] constructor *)
 module Jump : sig
@@ -148,12 +149,14 @@ end = struct
                 | AInst s -> AInst (resolve_symbol h s)
                 | CInst _ -> failwith "machine.Ainst.retrieve_int: unexpected `CInst _' argument"
                 | Ref _   -> failwith "machine.Ainst.retrieve_int: unexpected `Ref _' argument"
+                | Label _ -> raise (UnexpectedArgument "Label _")
         
         let encode (a : int Ast.instruction) : int list = 
                 match a with
                 | AInst i -> Vector.fill_truncate 16 (Vector.to_binary i)
                 | CInst _ -> failwith "machine.Ainst.retrieve_int: unexpected `CInst _' argument"
                 | Ref _   -> failwith "machine.Ainst.retrieve_int: unexpected `Ref _' argument"
+                | Label _ -> raise (UnexpectedArgument "Label _")
 end
 
 
@@ -173,6 +176,7 @@ end = struct
                 | AInst _      -> Ainst.encode (Ainst.convert h a)
                 | CInst c      -> Cinst.encode c
                 | Ref i        -> Ainst.encode (Skip.convert (line_offset + i))
+                | Label _      -> []
 end
 
 
@@ -180,19 +184,19 @@ module LabelTable : sig
         val populate : ?offset:int -> (string, int) Hashtbl.t -> string Ast.program -> unit
 end = struct
         let rec populate ?(offset=0) (h : (string, int) Hashtbl.t) (p : string Ast.program) : unit = 
+                let new_offset = offset + 1 in
                 match p with
                 | [] -> ()
-                | head :: tail -> 
+                | Label l :: tail -> 
                         (
-                        match Ast.Block.label_opt head with
-                        | Some Label l -> 
-                                if Hashtbl.mem h l then failwith ("machine.LabelTable.populate: repeated label " ^ l)
-                                else Hashtbl.add h l offset
-                        | None -> () 
-                        ) ;
-                        
-                        let new_offset = offset + Ast.Block.length head in
-                        populate ~offset:new_offset h tail;
+                        if Hashtbl.mem h l then 
+                                failwith ("machine.LabelTable.populate: repeated label " ^ l)
+                        else 
+                                Hashtbl.add h l offset
+                        ); populate ~offset:offset h tail
+                | AInst _ :: tail -> populate ~offset:new_offset h tail
+                | CInst _ :: tail -> populate ~offset:new_offset h tail
+                | Ref _   :: tail -> populate ~offset:new_offset h tail
 end
 
 
@@ -224,49 +228,32 @@ end = struct
                 init_symbols h;
                 )
 
-
-        let rec edit_instructions (offset : int) (h : (string, int) Hashtbl.t) (insts : string Ast.instruction list) : int = 
-                match insts with
-                | [] -> offset
-                | Ref _ :: tail   -> edit_instructions offset h tail
-                | CInst _ :: tail -> edit_instructions offset h tail
-                | AInst v :: tail -> 
-                        match int_of_string_opt v with
-                        | Some _ -> edit_instructions offset h tail
-                        | None -> (
-                                if not (Hashtbl.mem h v) then 
-                                        (
-                                        Hashtbl.add h v offset;
-                                        let new_offset = offset + 1 in
-                                        edit_instructions new_offset h tail
-                                        )
-                                else
-                                        edit_instructions offset h tail
-                                )
-
         let rec edit_program ?(offset=16) (h : (string, int) Hashtbl.t) (p : string Ast.program) : unit = 
                 match p with
                 | [] -> ()
-                | b :: bs -> 
-                        (
-                        let insts = Ast.Block.instructions b in
-                        let new_offset = edit_instructions offset h insts in
-                        edit_program ~offset:new_offset h bs  (* you need to update the offset count *)
-                        )
+                | Label _ :: tail -> edit_program ~offset:offset h tail
+                | CInst _ :: tail -> edit_program ~offset:offset h tail
+                | Ref _   :: tail -> edit_program ~offset:offset h tail
+                | AInst a :: tail -> 
+                                match  int_of_string_opt a with
+                                | Some _ -> edit_program ~offset:offset h tail
+                                | None   -> 
+                                        (
+                                        if not (Hashtbl.mem h a) then
+                                                (
+                                                Hashtbl.add h a offset;
+                                                let new_offset = offset + 1 in
+                                                edit_program ~offset:new_offset h tail
+                                                )
+                                        else
+                                                edit_program ~offset:offset h tail
+                                        )
 
         let populate ?(offset=16) (h : (string, int) Hashtbl.t) (p : string Ast.program) : unit = 
                 init h;
                 edit_program ~offset:offset h p
 end
 
-
-module Blocks : sig
-        val encode : (string, int) Hashtbl.t -> int -> string Ast.Block.t -> int list list
-end = struct
-        let encode (h : (string, int) Hashtbl.t) (block_offset : int) (b : string Ast.Block.t) : int list list = 
-                let insts = Ast.Block.instructions b in
-                Mylist.mapi_offset (Instruction.encode h) block_offset insts
-end
 
 module Program : sig
         val encode : ?offset:int -> (string, int) Hashtbl.t -> string Ast.program -> int list list
@@ -280,8 +267,12 @@ end = struct
         let rec encode ?(offset=0) (h : (string, int) Hashtbl.t) (p : string Ast.program) : int list list = 
                 match p with
                 | [] -> []
-                | b :: bs -> let new_offset = Ast.Block.length b + offset in
-                        (Blocks.encode h offset b) @ (encode ~offset:new_offset h bs)
+                | i :: is ->
+                        match i with
+                        | Label _ -> encode ~offset:(offset) h is 
+                        | AInst _ -> Instruction.encode h offset i :: encode ~offset:(offset + 1) h is
+                        | CInst _ -> Instruction.encode h offset i :: encode ~offset:(offset + 1) h is
+                        | Ref _   -> Instruction.encode h offset i :: encode ~offset:(offset + 1) h is
         
         let encode_pretty_string (h : (string, int) Hashtbl.t) (p : string Ast.program) : string list = 
                 List.map Vector.to_string (encode h p)

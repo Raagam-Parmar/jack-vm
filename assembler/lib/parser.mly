@@ -2,7 +2,6 @@
 
 %token ZERO
 %token ONE
-// %token MINUS_ONE
 %token BNOT
 %token BOR
 %token BAND
@@ -20,10 +19,8 @@
 %token <Ast.jump> JUMP            // Jump token carrying a string
 
 %nonassoc reg
-%nonassoc ZERO ONE BNOT MINUS AINST //  MINUS_ONE
 %nonassoc A D M
-%nonassoc inst_list
-%nonassoc label
+%right MINUS
 
 %start <string Ast.program> main
 
@@ -35,25 +32,15 @@ main:
         ;
 
 program:
-        | block { [$1] }
-        | block; program { $1 :: $2 }
-        ;
-
-block:
-        | LABEL; instruction_list { (Some (Ast.Label $1), $2) }
-        | instruction_list { (None, $1) }
-        | LABEL { (Some (Ast.Label $1), []) } %prec label
-        ;
-
-instruction_list:
-        | instruction                   { [$1] }        %prec inst_list
-        | instruction; instruction_list { $1 :: $2 }
+        | instruction          { [$1] }
+        | instruction; program { $1 :: $2 }
         ;
 
 instruction:
         | a_instruction { Ast.AInst $1 }
         | c_instruction { Ast.CInst $1 }
-        | ref           { Ast.Ref $1}
+        | ref           { Ast.Ref $1 }
+        | LABEL         { Ast.Label $1 }
         ;
 
 a_instruction:
@@ -103,7 +90,7 @@ comp:
         // | A MINUS_ONE           { Ast.Unary (Pred, A) }
         // | D MINUS_ONE           { Ast.Unary (Pred, D) }
         // | M MINUS_ONE           { Ast.Unary (Pred, M) }
-        | register MINUS ONE    { Ast.Unary (Pred, $1) }  // can i make this minus one?
+        | register MINUS ONE    { Ast.Unary (Pred, $1) }
 
         // | D PLUS A              { Ast.Binary (Add, A) }
         // | D MINUS A             { Ast.Binary (Sub, A) }

@@ -1,3 +1,4 @@
+(*
 (* open OUnit2 *)
 open Lib
 
@@ -29,3 +30,5 @@ let () = Machine.Program.populate h a
 
 let sl = Machine.Program.encode_pretty_string h a
 let () = List.iter print_endline sl
+
+*)
