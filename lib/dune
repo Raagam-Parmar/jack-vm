@@ -1,7 +1,7 @@
 (library
  (name jackvm)
  (libraries assembler.lib)
- (modules vmast encode snippets parser lexer)
+ (modules vmast encode parser lexer)
 )
 
 (menhir (modules parser)
