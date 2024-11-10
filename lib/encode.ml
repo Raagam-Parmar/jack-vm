@@ -330,10 +330,7 @@ end
 
 module Call : sig
         val v : string -> Vmast.Instruction.nArgs -> string -> string Ast.instruction list
-        (* val bootstrap : string -> string Ast.instruction list *)
         val save : string -> Vmast.Instruction.nArgs -> string Ast.instruction list
-        (* val unique_address : int -> string *)
-        (* val save : int -> int -> string Ast.instruction list *)
 end = struct
         let return_address (addr : string) : string Ast.instruction list = 
                 List.concat [
@@ -383,9 +380,6 @@ end = struct
                         setup_arg n ;
                         setup_lcl;
                 ]
-(* 
-        let save (addr : string) (n : Vmast.Instruction.nArgs) : string Ast.instruction list = 
-                save_f  n *)
 
         let v (fName : string) (nArgs : Vmast.Instruction.nArgs) (addr : string) : string Ast.instruction list = 
                 List.concat [
@@ -394,15 +388,6 @@ end = struct
                         [ Mnemonics.jmp ];
                         [ Label addr ]
                 ]
-        
-        (* let bootstrap (fName : string) : string Ast.instruction list = 
-                let init_ret_addr = 0 in
-                List.concat [
-                        return_address_f unique_address init_ret_addr;
-                        [ AInst fName ];
-                        [ Mnemonics.jmp ];
-                        [ Label (unique_address init_ret_addr) ]
-                ] *)
 end
 
 
@@ -490,16 +475,26 @@ end = struct
 end
 
 
+module ReturnAddress : sig
+        val generate : unit -> string
+        val bootstrap : string
+end = struct
+        let address_counter = ref 1
+
+        let prefix = "RET_ADDRESS_CALL"
+
+        let generate () : string = 
+                let address = Printf.sprintf "%s%d" prefix !address_counter in
+                incr address_counter;
+                address
+
+        let bootstrap = Printf.sprintf "%s%d" prefix 0 
+end
+
+
 module Instructions : sig
         val encode : (string, string) Vmast.Instruction.t -> string -> string Ast.instruction list
 end = struct
-        let counter : int ref = ref 1
-
-        let generate_return_address () : string =
-        let address = Printf.sprintf "RET_ADDRESS_CALL%d" !counter in
-                incr counter;
-                address
-
         let encode (i : (string, string) Vmast.Instruction.t) (fileName : string) : string Ast.instruction list = 
                 match i with
                 | Push (seg, nArgs) -> Segment.push seg nArgs fileName
@@ -521,8 +516,7 @@ end = struct
                 | Goto l   -> Goto.encode l
                 | IfGoto l -> IfGoto.encode l
 
-                | Call (fName, nArgs) -> Call.v fName nArgs (generate_return_address ())  
-                (* | Call _   -> failwith ( "Unexpected" ^ ( string_of_int addr_index )) *)
+                | Call (fName, nArgs) -> Call.v fName nArgs (ReturnAddress.generate ())  
                 | Ret                 -> Return.v
 end
 
@@ -559,12 +553,12 @@ end = struct
                 [ SP.goto ];
                 [ Helper.copy [M] D];
 
-                Call.v "Sys.init" 0 "RET_ADDRESS_CALL0"
+                Call.v "Sys.init" 0 ReturnAddress.bootstrap
         ]
 end
 
 module Program : sig
-        val encode : (string, string) Vmast.Program.t -> string Ast.instruction list
+        val encode : (string, string) Vmast.Program.t -> string Ast.program
 end = struct
         let rec no_bootstrap_encode (p : (string, string) Vmast.Program.t) : string Ast.instruction list =                 
                 match p with

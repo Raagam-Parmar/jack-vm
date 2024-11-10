@@ -1,12 +1,3 @@
-open Jackvm
-
-(** [parse s] parses [s] into an AST *)
-let parse (s : string) : (string, string) Vmast.Program.t = 
-        let lexbuf = Lexing.from_string s in
-        let ast = Parser.main Lexer.read lexbuf in
-        ast
-
-let p = parse "
 function Main.fibonacci 0
     push argument 0
     push constant 2
@@ -32,11 +23,4 @@ function Sys.init 0
     call Main.fibonacci 1   // computes the 4'th fibonacci element
 label WHILE
     goto WHILE              // loops infinitely
-"
 
-let ep = Encode.Program.encode p
-let h = Hashtbl.create 10
-let () = Lib.Machine.Program.populate h ep
-let eep = Lib.Machine.Program.encode_pretty_string h ep
-
-let () = List.iter print_endline eep
