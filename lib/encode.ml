@@ -2,23 +2,19 @@ open Lib
 
 exception UnexpectedOffset of int
 exception PopToConstant of string
+exception UnexpectedRepeat of int
 
 module Helper = struct
-        let rec many (repeat : int) (inst : string Ast.instruction) : string Ast.instruction list = 
+        let rec many (repeat : int) (elem : 'a) : 'a list = 
                 if repeat < 0 then
-                        failwith "Snippets.many: unexpected argument repeat"
+                        raise (UnexpectedRepeat repeat)
                 else if repeat = 0 then
                         []
                 else
-                        inst :: (many (repeat - 1) inst)
-                
-        let rec many_more (repeat : int) (insts : string Ast.instruction list) : string Ast.instruction list = 
-                if repeat < 0 then
-                        failwith "Snippets.many: unexpected argument repeat"
-                else if repeat = 0 then
-                        []
-                else 
-                        insts @ (many_more (repeat - 1) insts)
+                        elem :: (many (repeat - 1) elem)
+        
+        let rec many_more (repeat : int) (elem_list : 'a list) : 'a list = 
+                List.flatten (many repeat elem_list)
         
         let assign_i (dest : Ast.destination) (i : int) : string Ast.instruction list = [
                         AInst (string_of_int i);
@@ -299,30 +295,42 @@ end = struct
 end
 
 
-module Label : sig
-        val encode : string -> string Ast.instruction list
+module UniqueLabel : sig
+        val v : string -> string -> string
 end = struct
-        let encode (l : string) : string Ast.instruction list = 
-                [ Ast.Label l ]
+        let v (l : string) (f : string) : string = 
+                let label = Printf.sprintf "%s$%s" l f in 
+                label
+
+end
+
+
+module Label : sig
+        val encode : string -> string -> string Ast.instruction list
+end = struct
+        let encode (l : string) (f : string) : string Ast.instruction list = 
+                [ Ast.Label (UniqueLabel.v l f) ]
 end
 
 
 module Goto : sig
-        val encode : string -> string Ast.instruction list
+        val encode : string -> string -> string Ast.instruction list
 end = struct
-        let encode (l : string) : string Ast.instruction list = 
-                [ AInst l; Mnemonics.jmp ]
+        let encode (l : string) (f : string) : string Ast.instruction list = [
+                AInst (UniqueLabel.v l f); 
+                Mnemonics.jmp
+        ]
 end
 
 
 module IfGoto : sig
-        val encode : string -> string Ast.instruction list
+        val encode : string -> string -> string Ast.instruction list
 end = struct
-        let encode (l : string) : string Ast.instruction list = 
+        let encode (l : string) (f : string) : string Ast.instruction list = 
                 List.concat [
                         SP.deref_sub;
                         [ Helper.copy [D] M ];
-                        [ Ast.AInst l ];
+                        [ Ast.AInst (UniqueLabel.v l f) ];
                         [ Mnemonics.jne ]
                 ]
 end
@@ -493,9 +501,9 @@ end
 
 
 module Instructions : sig
-        val encode : (string, string) Vmast.Instruction.t -> string -> string Ast.instruction list
+        val encode : (string, string) Vmast.Instruction.t -> string  -> string -> string Ast.instruction list
 end = struct
-        let encode (i : (string, string) Vmast.Instruction.t) (fileName : string) : string Ast.instruction list = 
+        let encode (i : (string, string) Vmast.Instruction.t) (funcName : string) (fileName : string) : string Ast.instruction list = 
                 match i with
                 | Push (seg, nArgs) -> Segment.push seg nArgs fileName
                 | Pop  (seg, nArgs) -> Segment.pop  seg nArgs fileName
@@ -512,34 +520,34 @@ end = struct
                 | Or  -> Bitwise.orr
                 | Not -> Bitwise.not
 
-                | Label l  -> Label.encode l
-                | Goto l   -> Goto.encode l
-                | IfGoto l -> IfGoto.encode l
+                | Label l  -> Label.encode l funcName
+                | Goto l   -> Goto.encode l funcName
+                | IfGoto l -> IfGoto.encode l funcName
 
-                | Call (fName, nArgs) -> Call.v fName nArgs (ReturnAddress.generate ())  
+                | Call (funcName, nArgs) -> Call.v funcName nArgs (ReturnAddress.generate ())  
                 | Ret                 -> Return.v
 end
 
 
 module Body : sig
-        val encode : (string, string) Vmast.Instruction.t list -> string Ast.instruction list
+        val encode : (string, string) Vmast.Instruction.t list -> string -> string -> string Ast.instruction list
 end = struct
-        let rec encode (insts : (string, string) Vmast.Instruction.t list) : string Ast.instruction list = 
+        let rec encode (insts : (string, string) Vmast.Instruction.t list) (funcName : string) (fileName : string) : string Ast.instruction list = 
                 match insts with
                 | []      -> []
-                | i :: is -> Instructions.encode i "Foo" @ encode is
+                | i :: is -> Instructions.encode i funcName fileName @ encode is funcName fileName
 end
 
 
 module Function : sig
-        val encode : (string, string) Vmast.Function.t -> string Ast.instruction list
+        val encode : (string, string) Vmast.Function.t -> string -> string Ast.instruction list
 end = struct
-        let encode (func : (string, string) Vmast.Function.t) : string Ast.instruction list = 
+        let encode (func : (string, string) Vmast.Function.t) (fileName : string) : string Ast.instruction list = 
                 match func with
                 | { name; nVars; body } -> 
                         List.concat [
                                 Preamble.v name nVars;
-                                Body.encode body
+                                Body.encode body name fileName
                         ]
 end
 
@@ -558,14 +566,14 @@ end = struct
 end
 
 module Program : sig
-        val encode : (string, string) Vmast.Program.t -> string Ast.program
+        val encode : (string, string) Vmast.Program.t -> string -> string Ast.program
 end = struct
-        let rec no_bootstrap_encode (p : (string, string) Vmast.Program.t) : string Ast.instruction list =                 
+        let rec no_bootstrap_encode (p : (string, string) Vmast.Program.t) (fileName : string) : string Ast.instruction list =                 
                 match p with
                 | []      -> []
-                | f :: fs -> Function.encode f @ no_bootstrap_encode fs
+                | f :: fs -> Function.encode f fileName @ no_bootstrap_encode fs fileName
         
-        let encode (p : (string, string) Vmast.Program.t) : string Ast.instruction list = 
+        let encode (p : (string, string) Vmast.Program.t) (fileName : string) : string Ast.instruction list = 
                 Bootstrap.v @
-                no_bootstrap_encode p
+                no_bootstrap_encode p fileName
 end

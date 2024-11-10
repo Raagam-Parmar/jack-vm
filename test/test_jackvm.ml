@@ -34,7 +34,7 @@ label WHILE
     goto WHILE              // loops infinitely
 "
 
-let ep = Encode.Program.encode p
+let ep = Encode.Program.encode p "Foo"
 let h = Hashtbl.create 10
 let () = Lib.Machine.Program.populate h ep
 let eep = Lib.Machine.Program.encode_pretty_string h ep

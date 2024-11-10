@@ -54,7 +54,7 @@ let in_ch = make_in_channel input_file
 and return the AST [program_ast] for the file *)
 let program_string = read_file in_ch
 let p = parse program_string
-let program_ast = Encode.Program.encode p
+let program_ast = Encode.Program.encode p "Foo"
 
 
 (**  The following functions create the symbol table [sym_tbl]
