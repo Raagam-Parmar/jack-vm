@@ -1,0 +1,37 @@
+// OK
+// basic mul
+
+function mult 3
+push argument 0
+pop local 0
+push argument 1
+pop local 1
+push constant 0
+pop local 2
+
+
+label START
+push local 1
+push constant 0
+eq
+if-goto END
+push local 0
+push local 2
+add
+pop local 2
+push local 1
+push constant 1
+sub
+pop local 1
+goto START
+
+label END
+push local 2
+return
+
+function Sys.init 0
+push constant 24
+push constant 42
+call mult 2
+label WHILE
+goto WHILE

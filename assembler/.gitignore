@@ -3,3 +3,4 @@ output.asm
 _build/
 assembler.opam
 output.txt
+output.hack

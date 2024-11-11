@@ -440,9 +440,14 @@ end
 
 
 module Call : sig
+        (** [v func n addr] calls function [f] with [n] arguments using [addr] as the unique return address. *)
         val v : string -> Vmast.Instruction.nArgs -> string -> string Ast.instruction list
+
+        (** [save addr n] generated ASM instructions to save the frame of the calling-function, which is calling 
+        a function with [n] arguments. *)
         val save : string -> Vmast.Instruction.nArgs -> string Ast.instruction list
 end = struct
+        (** [return_address addr] saves the unique return address of the caller, given by [addr]. *)
         let return_address (addr : string) : string Ast.instruction list = 
                 List.concat [
                         [ Ast.AInst addr ];
@@ -452,6 +457,7 @@ end = struct
                         SP.incr
                 ]
                 
+        (** [segment seg] saves the segment [seg] of the caller. *)
         let segment (seg : Vmast.Segment.t) : string Ast.instruction list = 
                 List.concat [
                         Segment.goto seg;
@@ -461,6 +467,7 @@ end = struct
                         SP.incr
                 ]
         
+        (** [setup_arg n] sets up the argument section for the callee with [n] arguments. *)
         let setup_arg (n : Vmast.Instruction.nArgs) : string Ast.instruction list = 
                 List.concat [
                         [ SP.goto ];
@@ -473,6 +480,7 @@ end = struct
                         [ Helper.copy [M] D ]
                 ]
         
+        (** [setup_lcl] sets up the Local segment for the callee. *)
         let setup_lcl : string Ast.instruction list = 
                 List.concat [
                         [ SP.goto ];

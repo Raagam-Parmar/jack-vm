@@ -1,23 +1,18 @@
 {
         open Parser
-        (* open Lexing *)
-(* 
-        (** [next_line lexbuf] updates the position of the current lexical buffer [lexbuf]
-        to point towards the start of the next line *)
-        let next_line (lexbuf : lexbuf) =
-                let pos = lexbuf.lex_curr_p in
-                lexbuf.lex_curr_p <- 
-                {
-                        pos with pos_bol = pos.pos_cnum;
-                        pos_lnum = pos.pos_lnum + 1
-                } *)
 
+        exception UnexpectedArgument of string
+
+        (** [reduce_a_inst a] reduces [a] recognised by the RegEx into string without leading ["@"] or [" "].  *)
         let reduce_a_inst (a : string) : string = 
                 String_tools.trim_left ~rprefix:"@ " a
 
+        (** [reduce_label l] reduces [l] recognised by RegEx into a string by removing leading an trailing ["("], [")"] and [" "]. *)
         let reduce_label (l : string) : string = 
                 String_tools.trim ~rprefix:"( " ~rsuffix:" )" l
 
+        (** [reduce_jump j] reduces [j] recognised by RegEx into [Ast.jump] type. It raises [UnexpectedArgument]
+        if it is called on a string which is not matched by the RegEx. *)
         let reduce_jump (j : string) : Ast.jump = 
                 match j with
                 | "JGT" -> JGT
@@ -27,16 +22,17 @@
                 | "JNE" -> JNE
                 | "JLE" -> JLE
                 | "JMP" -> JMP
-                | _     -> failwith "Lexer.reduce_jump : Unexpected Argument"
+                | _     -> raise (UnexpectedArgument j)
         
+        (** [reduce_refF rf] reduces [rf] recognised by RegEx, which is of the form ["^+i"] and returns [i] integer. *)
         let reduce_refF (rf : string) : int = 
                 int_of_string (String_tools.trim_left ~rprefix:"@^+ " rf)
         
+        (** [reduce_refB rf] reduces [rf] recognised by RegEx, which is of the form ["^-i"] and returns [- i] integer. *)
         let reduce_refB (rb : string) : int = 
                 -1 * int_of_string (String_tools.trim_left ~rprefix:"@^- " rb)
-
-
 }
+
 
 let space        = [' ' '\t']
 let spaces       = space+
@@ -57,8 +53,6 @@ let allow_string = (allow_first) (allow_rest)*
 
 let jump         = "JGT" | "JGE" | "JEQ" | "JNE" | "JLE" | "JLT" | "JMP"
 
-(* let register     = 'A' | 'D' | 'M' *)
-
 let label        = '(' (allow_string) ')'
 
 let ainst        = '@' (spaces*) (allow_string) | '@' (spaces*) (int)
@@ -69,29 +63,29 @@ let refB         = '@' (spaces*) '^' (spaces*) '-' (spaces*) (int)
 
 rule read = 
         parse
-        | eof           { EOF }
-        | '0'           { ZERO }
-        | '1'           { ONE }
-        | '!'           { BNOT }
-        | '|'           { BOR }
-        | '&'           { BAND }
+        | eof           { EOF   }
+        | '0'           { ZERO  }
+        | '1'           { ONE   }
+        | '!'           { BNOT  }
+        | '|'           { BOR   }
+        | '&'           { BAND  }
         | '-'           { MINUS }
-        | '+'           { PLUS }
+        | '+'           { PLUS  }
         | '='           { EQUAL }
-        | ';'           { SEMI }
+        | ';'           { SEMI  }
         | 'A'           { A }
         | 'D'           { D }
         | 'M'           { M }
 
-        | label         { LABEL (reduce_label (Lexing.lexeme lexbuf)) }
-        | jump          { JUMP (reduce_jump (Lexing.lexeme lexbuf)) }
+        | label         { LABEL (reduce_label (Lexing.lexeme lexbuf))  }
+        | jump          { JUMP (reduce_jump (Lexing.lexeme lexbuf))    }
         | ainst         { AINST (reduce_a_inst (Lexing.lexeme lexbuf)) }
-        | refF          { REF (reduce_refF (Lexing.lexeme lexbuf)) }
-        | refB          { REF (reduce_refB (Lexing.lexeme lexbuf)) }
+        | refF          { REF (reduce_refF (Lexing.lexeme lexbuf))     }
+        | refB          { REF (reduce_refB (Lexing.lexeme lexbuf))     }
 
-        | ignore        { read lexbuf }
+        | ignore        { read lexbuf             }
         | "/*"          { skipMultiComment lexbuf }
-        | "//"          { skipComment lexbuf }
+        | "//"          { skipComment lexbuf      }
 
 and skipComment = 
         parse
@@ -102,7 +96,7 @@ and skipComment =
 and skipMultiComment = 
         parse
         | [^'*']        { skipMultiComment lexbuf }
-        | '*'           { endMultiComment lexbuf }
+        | '*'           { endMultiComment lexbuf  }
         | eof           { EOF }
 
 and endMultiComment =

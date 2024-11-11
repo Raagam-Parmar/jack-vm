@@ -45,9 +45,3 @@ type 'v instruction =
         | Label of 'v
 
 type 'v program = 'v instruction list
-
-(*
-type ('v, 'l) block = 'l label option * 'v instruction list
-
-type ('v, 'l) program = ('v, 'l) block list
-*)

@@ -1,8 +1,11 @@
 exception UnexpectedRegister of string
-exception UnexpectedArgument of string
+exception UnexpectedStrArgument of string Ast.instruction
+exception UnexpectedIntArgument of int Ast.instruction
+exception MissingSymbol of string
+exception RepeatedLabel of string
 
-(** [Jump.encode] takes [Ast.jump option] and returns [int list] corresponding to the [Ast.jump] constructor *)
 module Jump : sig
+        (** [encode j] encodes [j] into a 3-vector [jjj]. *)
         val encode : Ast.jump option -> int list
 end = struct
         let encode_j (j : Ast.jump) : int list = 
@@ -22,8 +25,8 @@ end = struct
 end
 
 
-(** [Dest.encode] takes [Ast.destination option] and returns [int list] corresponding to the [Ast.destination] selected *)
 module Dest : sig
+        (** [encode d] encodes [d] into a 3-vector [ddd]. *)
         val encode : Ast.destination option -> int list
 end = struct
         let encode_r (r : Ast.register) : int list = 
@@ -36,7 +39,7 @@ end = struct
                 let vecM = if List.mem Ast.M d then encode_r Ast.M else [0; 0; 0] in
                 let vecD = if List.mem Ast.D d then encode_r Ast.D else [0; 0; 0] in
                 let vecA = if List.mem Ast.A d then encode_r Ast.A else [0; 0; 0] in
-                Vector.add_vector (Vector.add_vector vecM vecD) vecA
+                Vector.add (Vector.add vecM vecD) vecA
 
         let encode (dest : Ast.destination option) : int list = 
                 match dest with
@@ -45,8 +48,8 @@ end = struct
 end
 
 
-(** [Const.encode] takes [Ast.const] and returns [int list] corresponding to the [Ast.const] constructor *)
 module Const : sig
+        (** [encode c] encodes constant (0, 1, -1) [c] into a 7-vector [ccccccc]. *)
         val encode : Ast.const -> int list
 end = struct
         let encode (c : Ast.const) : int list = 
@@ -57,8 +60,8 @@ end = struct
 end
 
 
-(** [Unary.encode] takes [Ast.unOp] and [Ast.register] and returns [int list] corresponding to the chosen unOp and register *)
 module Unary : sig
+        (** [encode uop r] encodes encodes binary instructions of applying unary [uop] on register [r]; into a 7-vector [ccccccc]. *)
         val encode : Ast.unOp -> Ast.register -> int list
 end = struct
         let encode_r (r : Ast.register) : int list = 
@@ -87,8 +90,8 @@ end = struct
 end
 
 
-(** [Binary.encode] takes [Ast.biOp] and [Ast.register] and returns [int list] corresponding to the chosen biOp and register *)
 module Binary : sig
+        (** [encode bop r] encodes encodes binary instructions of applying binary [bop] on register [r]; into a 7-vector [ccccccc]. *)
         val encode : Ast.biOp -> Ast.register -> int list
 end = struct
         let encode_r (r : Ast.register) : int list = 
@@ -109,8 +112,8 @@ end = struct
 end
 
 
-(** [Comp.encode] takes [Ast.computation] and returns [int list]. It binds the [Const.encode], [Unary.encode] and [Binary.encode] into a single encode function *)
 module Comp : sig
+        (** [encode comp] uses [Binary.encode], [Unary.encode], [Dest.encode] and [Jump.encode] to encode [comp] into a 13-vector [cccccccdddjjj]. *)
         val encode : Ast.computation -> int list
 end = struct
         let encode (comp : Ast.computation) : int list = 
@@ -121,8 +124,8 @@ end = struct
 end
 
 
-(** [Cinst.encode] takes [Ast.c_inst] and returns [int list]. It binds the [Jump.encode], [Dest.encode] and [Comp.encode] into a single encode function *)
 module Cinst : sig
+        (** [encode cinst] uses [Comp.encode] to encode [cinst] into a 16-vector [111cccccccdddjjj]. *)
         val encode : Ast.c_inst -> int list
 end = struct
         let encode (c : Ast.c_inst) : int list = 
@@ -132,9 +135,14 @@ end
 
 
 module Ainst : sig
+        (** [convert h i] looks up binding of [i] in Hashtable [h] and converts [i : string Ast.instruction] into [int Ast.instruction]. *)
         val convert : (string, int) Hashtbl.t -> string Ast.instruction -> int Ast.instruction
+
+        (** [encode i] encodes [i] into a 16-vector [1<truncated binary representation of i>]. *)
         val encode : int Ast.instruction -> int list
 end = struct
+        (** [resolve_symbol h s] checks if [s] is a number and returns it as is, if [s] is a string, then checks binding of [s] in Hashtable [h]. 
+                It raises [MissingSymbol] if [s : string] doesn't have a binding in [h]. *)
         let resolve_symbol (h : (string, int) Hashtbl.t) (symbol : string) : int = 
                 match int_of_string_opt symbol with
                 | Some x -> x
@@ -142,34 +150,36 @@ end = struct
                         if Hashtbl.mem h symbol then
                                 Hashtbl.find h symbol
                         else 
-                                failwith "machine.Ainst.retrieve_int: unexpected `CInst _' argument"
+                                raise (MissingSymbol symbol)
                 
         let convert (h : (string, int) Hashtbl.t) (a : string Ast.instruction) : int Ast.instruction = 
                 match a with
                 | AInst s -> AInst (resolve_symbol h s)
-                | CInst _ -> failwith "machine.Ainst.retrieve_int: unexpected `CInst _' argument"
-                | Ref _   -> failwith "machine.Ainst.retrieve_int: unexpected `Ref _' argument"
-                | Label _ -> raise (UnexpectedArgument "Label _")
+                | CInst _ -> raise (UnexpectedStrArgument a)
+                | Ref _   -> raise (UnexpectedStrArgument a)
+                | Label _ -> raise (UnexpectedStrArgument a)
         
         let encode (a : int Ast.instruction) : int list = 
                 match a with
-                | AInst i -> Vector.fill_truncate 16 (Vector.to_binary i)
-                | CInst _ -> failwith "machine.Ainst.retrieve_int: unexpected `CInst _' argument"
-                | Ref _   -> failwith "machine.Ainst.retrieve_int: unexpected `Ref _' argument"
-                | Label _ -> raise (UnexpectedArgument "Label _")
+                | AInst i -> Vector.fill_truncate 16 (Vector.binary i)
+                | CInst _ -> raise (UnexpectedIntArgument a)
+                | Ref _   -> raise (UnexpectedIntArgument a)
+                | Label _ -> raise (UnexpectedIntArgument a)
 end
 
 
 module Skip : sig
+        (** [convert i] converts [i] into an [int Ast.instruction]. *)
         val convert : int -> int Ast.instruction
 end = struct
         let convert (line_offset : int) : int Ast.instruction = 
                 AInst line_offset
 end
 
-(** [Instruction.encode] takes [(string, int) Hashtable.t] and [string Ast.instruction] and returns [int list] by reolving any AInst or using [Cinst.encode] to encode any CInst *)
 module Instruction : sig
-        val encode : (string, int) Hashtbl.t ->int -> string Ast.instruction ->  int list
+        (** [encode h lo a] encodes [a] into 16-vector using [Ainst.encode] for Ainst, and [Skip.convert] if [a] is a reference.
+                [lo] is the offset in the program at which [a] is present. *)
+        val encode : (string, int) Hashtbl.t -> int -> string Ast.instruction ->  int list
 end = struct
         let encode (h : (string, int) Hashtbl.t) (line_offset : int) (a : string Ast.instruction) : int list = 
                 match a with
@@ -181,6 +191,7 @@ end
 
 
 module LabelTable : sig
+        (** [populate h p] populates Hashtable [h] with labels in program [p]. It raises  *)
         val populate : ?offset:int -> (string, int) Hashtbl.t -> string Ast.program -> unit
 end = struct
         let rec populate ?(offset=0) (h : (string, int) Hashtbl.t) (p : string Ast.program) : unit = 
@@ -190,7 +201,7 @@ end = struct
                 | Label l :: tail -> 
                         (
                         if Hashtbl.mem h l then 
-                                failwith ("machine.LabelTable.populate: repeated label " ^ l)
+                                raise (RepeatedLabel l)
                         else 
                                 Hashtbl.add h l offset
                         ); populate ~offset:offset h tail
@@ -202,15 +213,23 @@ end
 
 (** TODO: make this code better *)
 module VarTable : sig
+        (** [populate h p] populates Hashtable [h] with built-in symbol bindings and program variables in the program [p]. *)
         val populate : ?offset:int -> (string, int) Hashtbl.t -> string Ast.program -> unit
 end = struct
+        (** [register_symbol i] gives the built-in register symbol for 0 <= [i] <= 15, which is ["Ri"]. *)
+        let register_symbol (i : int) : string = 
+                String.cat "R" (string_of_int i)
+
+        (** [init_registers start_index:int end_index:int h] populates Hashtable [h] with register symbols from [start_index] to [end_index]. *)
         let rec init_registers ?(start_index=0) ?(end_index=15) (h : (string, int) Hashtbl.t) : unit = 
+                let new_start_index = start_index + 1 in
                 if start_index <= end_index then 
                         (
-                        Hashtbl.add h ("R" ^ string_of_int start_index) start_index;
-                        init_registers h ~start_index: (start_index + 1) ;
+                        Hashtbl.add h (register_symbol start_index) start_index;
+                        init_registers h ~start_index:new_start_index ;
                         )
 
+        (** [init_symbols h] populates Hashtable [h] with built-in symbols of Hack. *)
         let init_symbols (h : (string, int) Hashtbl.t) : unit = 
                 (
                 Hashtbl.add h  "SCREEN" 16384;
@@ -222,12 +241,15 @@ end = struct
                 Hashtbl.add h    "THAT" 4;
                 )
 
+        (** [init h] calls [init_symbols] and [init_registers] on Hashtable [h]. *)
         let init (h : (string, int) Hashtbl.t) : unit = 
                 (
                 init_registers h;
                 init_symbols h;
                 )
 
+        (** [edit_program offset:int h p] populates Hashtable [h] with program variables and their binding addresses, 
+        which begin from 16 ([offset]) by default. *)
         let rec edit_program ?(offset=16) (h : (string, int) Hashtbl.t) (p : string Ast.program) : unit = 
                 match p with
                 | [] -> ()
@@ -256,8 +278,14 @@ end
 
 
 module Program : sig
+        (** [encode h p] encodes program [p] into 16-vectors, each vector corresponding to an instruction (except for [Label]).
+        It uses [h] to look up the bindings of Labels and Program Variables in [p]. *)
         val encode : ?offset:int -> (string, int) Hashtbl.t -> string Ast.program -> int list list
+
+        (** [encode_pretty_string h p] is same as [encode h p] except it converts all 16-vectors into binary strings. *)
         val encode_pretty_string : (string, int) Hashtbl.t -> string Ast.program -> string list
+
+        (** [populate h p] populates Hashtable [h] with labels and program variables in [p]. *)
         val populate : (string, int) Hashtbl.t -> string Ast.program -> unit
 end = struct
         let populate (h : (string, int) Hashtbl.t) ( p : string Ast.program) : unit = 
@@ -275,5 +303,5 @@ end = struct
                         | Ref _   -> Instruction.encode h offset i :: encode ~offset:(offset + 1) h is
         
         let encode_pretty_string (h : (string, int) Hashtbl.t) (p : string Ast.program) : string list = 
-                List.map Vector.to_string (encode h p)
+                List.map Vector.string (encode h p)
 end

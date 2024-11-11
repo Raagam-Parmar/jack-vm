@@ -36,7 +36,7 @@ let segment      = "argument" | "local" | "static" | "constant" | "this" | "that
 
 rule read = 
         parse
-        | eof           { EOF }
+        | eof     { EOF  }
 
         | "push"  { PUSH }
         | "pop"   { POP  }

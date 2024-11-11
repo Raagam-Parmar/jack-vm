@@ -1,4 +1,4 @@
-%token EOF                      // End Of File token
+%token EOF
 
 %token ZERO
 %token ONE
@@ -13,14 +13,14 @@
 %token D
 %token M
 
-%token <string> LABEL           // Label token carrying a string
-%token <string> AINST           // AInst token carrying a string
-%token <int> REF
-%token <Ast.jump> JUMP            // Jump token carrying a string
+%token <string>   LABEL
+%token <string>   AINST
+%token <int>      REF
+%token <Ast.jump> JUMP
 
 %nonassoc reg
 %nonassoc A D M
-%right MINUS
+%right    MINUS
 
 %start <string Ast.program> main
 
@@ -71,47 +71,15 @@ register_list:
 
 comp:
         | const                 { Ast.Constant $1 }
-
-        // | BNOT A                { Ast.Unary (BitNot, A) }
-        // | BNOT D                { Ast.Unary (BitNot, D) }
-        // | BNOT M                { Ast.Unary (BitNot, M) }
         | BNOT register         { Ast.Unary (BitNot, $2) }
-
-        // | MINUS A               { Ast.Unary (Minus, A) }
-        // | MINUS D               { Ast.Unary (Minus, D) }
-        // | MINUS M               { Ast.Unary (Minus, M) }
         | MINUS register        { Ast.Unary (Minus, $2) }
-
-        // | A PLUS ONE            { Ast.Unary (Succ, A) }
-        // | D PLUS ONE            { Ast.Unary (Succ, D) }
-        // | M PLUS ONE            { Ast.Unary (Succ, M) }
         | register PLUS ONE     { Ast.Unary (Succ, $1) }
-
-        // | A MINUS_ONE           { Ast.Unary (Pred, A) }
-        // | D MINUS_ONE           { Ast.Unary (Pred, D) }
-        // | M MINUS_ONE           { Ast.Unary (Pred, M) }
         | register MINUS ONE    { Ast.Unary (Pred, $1) }
-
-        // | D PLUS A              { Ast.Binary (Add, A) }
-        // | D MINUS A             { Ast.Binary (Sub, A) }
-        // | D BAND A              { Ast.Binary (BinAnd, A) }
-        // | D BOR A               { Ast.Binary (BinOr, A) }
         | D binary_op A         { Ast.Binary ($2, A) }
-
-        // | D PLUS M              { Ast.Binary (Add, M) }
-        // | D MINUS M             { Ast.Binary (Sub, M) }
-        // | D BAND M              { Ast.Binary (BinAnd, M) }
-        // | D BOR M               { Ast.Binary (BinOr, M) }
         | D binary_op M         { Ast.Binary ($2, M) }
-
         | A MINUS D             { Ast.Binary (SubFrom, A) }
         | M MINUS D             { Ast.Binary (SubFrom, M) }
-
-        // | A                     { Ast.Unary (Identity, A) }  %prec reg
-        // | D                     { Ast.Unary (Identity, D) }  %prec reg
-        // | M                     { Ast.Unary (Identity, M) }  %prec reg
         | register              { Ast.Unary (Identity, $1) }    %prec reg
-
         ;
 
 %inline binary_op:
