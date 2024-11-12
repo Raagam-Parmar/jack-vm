@@ -102,7 +102,8 @@ let pop_temp (i : Vmast.Instruction.offset) : string Ast.instruction list =
 (** [push_this_that s] is same as [push s], there [s] can only be either [This] or [That] *)
 let push_this_that (s : Vmast.Segment.t) : string Ast.instruction list = 
     List.concat [
-        deref s;
+        (* deref s; *)
+        goto s;
         [ Helper.copy [D] M ];
         SP.deref;
         [ Helper.copy [M] D ];
@@ -162,8 +163,8 @@ let push (s : Vmast.Segment.t) (i : Vmast.Instruction.offset) (f : string) : str
     | Local     ->  push_segment s i
     | Static    ->  push_static f i
     | Constant  ->  push_constant i
-    | This      ->  push_this_that s
-    | That      ->  push_this_that s
+    | This      ->  push_segment s i
+    | That      ->  push_segment s i
     | Pointer   ->  push_pointer i
     | Temp      ->  push_temp i
 
@@ -174,7 +175,7 @@ let pop (s : Vmast.Segment.t) (i : Vmast.Instruction.offset) (f : string) : stri
     | Local     ->  if (i <= 5) then pop_segment_short s i else pop_segment_long s i
     | Static    ->  pop_static f i
     | Constant  ->  raise (PopToConstant "Cannot pop to Segment Constant")
-    | This      ->  pop_this_that s
-    | That      ->  pop_this_that s
+    | This      ->  if (i <= 5) then pop_segment_short s i else pop_segment_long s i
+    | That      ->  if (i <= 5) then pop_segment_short s i else pop_segment_long s i
     | Pointer   ->  pop_pointer i
     | Temp      ->  pop_temp i
