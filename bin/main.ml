@@ -10,15 +10,6 @@ let parse (s : string) : (string, string) Vmast.Function.t list =
     ast
 
 
-(** [make_in_channel fp] returns in-channel for [fp] if it exists, otherwise defaults
-    to a file called `input.asm' in the dune directory and returns its in-channel. *)
-(* let make_in_channel (file_path : string) : in_channel option = 
-    try Some(open_in file_path)
-    with Sys_error _ ->
-        Printf.eprintf "Error opening file.\n";
-        None *)
-
-
 (** [read_file ic] reads contents of in-channel [ic] as a string and closes it. *)
 let read_file (ic : in_channel) : string =
     let buffer = Buffer.create 4096 in
@@ -54,6 +45,7 @@ let change_extension (filename : string) (extension : string) : string =
     basename filename ^ "." ^ extension
 
 
+(* this function checks if all arguments are valid file paths. *)
 let () = 
     for i = 1 to Array.length Sys.argv - 1 do
         let input_file = Sys.argv.(i) in
@@ -61,13 +53,15 @@ let () =
             raise (VMError input_file)
     done
 
-
+(** [file_list ()] returns a string which contains all the input arguments. *)
 let rec file_list ?(argi=Array.length Sys.argv - 1) () : string list =
     if argi = 0 then [] else
     let input_file = Sys.argv.(argi) in
     input_file :: file_list ~argi:(argi - 1) ()
 
 
+(** [get_vmast files] returns a list of tuples, where second element is a function, and first element
+is the file in which the function is declared. *)
 let rec get_vmast (files : string list) : (string * (string, string) Vmast.Function.t) list = 
     match files with
     | [] -> []
@@ -77,15 +71,19 @@ let rec get_vmast (files : string list) : (string * (string, string) Vmast.Funct
         List.map ((fun s f -> (s, f)) head) functions @ get_vmast tail
 
 
+(** [fun_encode f] takes a list from [get_vmast] and returns the ASM instructions by combining the
+output of the individual ASM instructions from each function. *)
 let rec func_encode (s : (string * (string, string) Vmast.Function.t) list) : string Ast.instruction list =
     match s with
     | [] -> []
     | head :: tail -> Encode.Function.encode (fst head) (snd head) @ func_encode tail
 
 
+(** [main_encode s] calls the [func_encode f] and adds Bootstrap code in the beginning. *)
 let main_encode (s : (string * (string, string) Vmast.Function.t) list) : string Ast.instruction list =
     Encode.Bootstrap.v @ 
     func_encode s
+
 
 (* main program *)
 let () = 

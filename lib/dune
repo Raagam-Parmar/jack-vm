@@ -1,13 +1,12 @@
 (library
  (name jackvm)
  (libraries assembler.lib)
- (modules vmast encode parser lexer)
+ (modules vmast encode parser lexer segment helper SP returnAddress call return)
 )
 
 (menhir (modules parser)
  (flags --exn-carries-state --trace --dump)
  ; (flags --exn-carries-state)
-
  ; (flags --strict)
 )
 
