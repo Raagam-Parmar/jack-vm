@@ -669,9 +669,9 @@ end
 
 module Function : sig
         (** [encode f file] translates VM Function [f] within a VM file [file.vm]. *)
-        val encode : (string, string) Vmast.Function.t -> string -> string Ast.instruction list
+        val encode : string -> (string, string) Vmast.Function.t -> string Ast.instruction list
 end = struct
-        let encode (func : (string, string) Vmast.Function.t) (fileName : string) : string Ast.instruction list = 
+        let encode (fileName : string) (func : (string, string) Vmast.Function.t) : string Ast.instruction list = 
                 match func with
                 | { name; nVars; body } -> 
                         List.concat [
@@ -679,6 +679,7 @@ end = struct
                                 Body.encode body name fileName
                         ]
 end
+
 
 module Bootstrap : sig
         (** [v] generates ASM code for the bootstrapping the VM. It is necessary for the VM to have a [Sys.init] function. *)
@@ -695,17 +696,18 @@ end = struct
         ]
 end
 
+
 module Program : sig
-        (** [encode p file] bootstraps and translates the VM program [p] which is written in a file [file.vm]. *)
-        val encode : (string, string) Vmast.Program.t -> string -> string Ast.program
+        (** [encode file p] bootstraps and translates the VM program [p] which is written in a file [file.vm]. *)
+        val encode : string -> (string, string) Vmast.Program.t -> string Ast.program
 end = struct
         (** [no_bootstrap_encode p file] doesn't bootstrap and translates the VM program [p] which is written in a file [file.vm]. *)
-        let rec no_bootstrap_encode (p : (string, string) Vmast.Program.t) (fileName : string) : string Ast.instruction list =                 
+        let rec no_bootstrap_encode (fileName : string) (p : (string, string) Vmast.Program.t) : string Ast.instruction list =                 
                 match p with
                 | []      -> []
-                | f :: fs -> Function.encode f fileName @ no_bootstrap_encode fs fileName
+                | f :: fs -> Function.encode fileName f @ no_bootstrap_encode fileName fs
         
-        let encode (p : (string, string) Vmast.Program.t) (fileName : string) : string Ast.instruction list = 
+        let encode (fileName : string) (p : (string, string) Vmast.Program.t) : string Ast.instruction list = 
                 Bootstrap.v @
-                no_bootstrap_encode p fileName
+                no_bootstrap_encode fileName p
 end

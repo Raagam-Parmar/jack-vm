@@ -2,3 +2,5 @@ _build
 _opam
 jackvm.opam
 input.vm
+*.hack
+test/

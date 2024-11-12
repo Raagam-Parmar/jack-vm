@@ -278,6 +278,9 @@ end
 
 
 module Program : sig
+        (** [v p] returns the Hack assembly instructions for Assembly program [p]. *)
+        val v : string Ast.program -> string list
+        
         (** [encode h p] encodes program [p] into 16-vectors, each vector corresponding to an instruction (except for [Label]).
         It uses [h] to look up the bindings of Labels and Program Variables in [p]. *)
         val encode : ?offset:int -> (string, int) Hashtbl.t -> string Ast.program -> int list list
@@ -304,4 +307,9 @@ end = struct
         
         let encode_pretty_string (h : (string, int) Hashtbl.t) (p : string Ast.program) : string list = 
                 List.map Vector.string (encode h p)
+        
+        let v (p : string Ast.program) : string list = 
+                let h = Hashtbl.create 10 in
+                let () = populate h p in
+                encode_pretty_string h p
 end
